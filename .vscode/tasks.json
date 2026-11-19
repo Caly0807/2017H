@@ -1,0 +1,65 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "STM32: Configure 2017H",
+            "type": "process",
+            "command": "D:/STM32CubeCLT_1.20.0/CMake/bin/cmake.exe",
+            "args": [
+                "--preset",
+                "Debug"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "D:/STM32CubeCLT_1.20.0/GNU-tools-for-STM32/bin;D:/STM32CubeCLT_1.20.0/Ninja/bin;${env:PATH}"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "STM32: Build 2017H",
+            "type": "process",
+            "command": "D:/STM32CubeCLT_1.20.0/CMake/bin/cmake.exe",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build/Debug",
+                "--parallel",
+                "8"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": "$gcc",
+            "dependsOn": "STM32: Configure 2017H",
+            "dependsOrder": "sequence",
+            "group": "build"
+        },
+        {
+            "label": "STM32: Build and Flash (ST-LINK)",
+            "type": "process",
+            "command": "D:/STM32CubeCLT_1.20.0/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe",
+            "args": [
+                "-c",
+                "port=SWD",
+                "freq=1000",
+                "mode=Normal",
+                "-w",
+                "${workspaceFolder}/build/Debug/2017H.hex",
+                "-v",
+                "-rst"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "STM32: Build 2017H",
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        }
+    ]
+}

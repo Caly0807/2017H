@@ -1,0 +1,11 @@
+build
+mx.scratch
+!.settings
+CMakeUserPresets.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
