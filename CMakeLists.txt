@@ -50,6 +50,32 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/adc_console.c
 )
 
+option(ENABLE_DRDY_DIAG "Measure ADS1256 DRDY with TIM3_CH3" OFF)
+option(ENABLE_AUTO_SWEEP "Run one headless 1-40 MHz sweep on reset" OFF)
+option(ENABLE_DETECTOR_TEST "Measure DDS on/off at 100 kHz instead of sweeping" OFF)
+if(ENABLE_DRDY_DIAG AND ENABLE_AUTO_SWEEP)
+    message(FATAL_ERROR "Choose either DRDY diagnostics or auto sweep")
+endif()
+if(ENABLE_DRDY_DIAG)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE Core/Src/drdy_diag.c)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_DRDY_DIAG)
+endif()
+if(ENABLE_AUTO_SWEEP)
+    set(SWEEP_AMPLITUDE_CODE "16" CACHE STRING "DDS amplitude code used by the sweep")
+    if(NOT SWEEP_AMPLITUDE_CODE MATCHES "^[1-9][0-9]*$" OR SWEEP_AMPLITUDE_CODE GREATER 1023)
+        message(FATAL_ERROR "SWEEP_AMPLITUDE_CODE must be an integer from 1 to 1023")
+    endif()
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE Core/Src/auto_sweep.c)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_AUTO_SWEEP SWEEP_AMPLITUDE_CODE=${SWEEP_AMPLITUDE_CODE})
+    if(ENABLE_DETECTOR_TEST)
+        set(DETECTOR_ADC_CHANNEL "0" CACHE STRING "Chip input used by the detector test")
+        if(NOT DETECTOR_ADC_CHANNEL MATCHES "^[01]$")
+            message(FATAL_ERROR "DETECTOR_ADC_CHANNEL must be 0 or 1")
+        endif()
+        target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_DETECTOR_TEST DETECTOR_ADC_CHANNEL=${DETECTOR_ADC_CHANNEL})
+    endif()
+endif()
+
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths

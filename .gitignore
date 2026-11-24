@@ -1,4 +1,5 @@
 build
+__pycache__/
 mx.scratch
 !.settings
 CMakeUserPresets.json

@@ -23,6 +23,12 @@
 /* USER CODE BEGIN Includes */
 #include "dds_console.h"
 #include "adc_console.h"
+#ifdef ENABLE_DRDY_DIAG
+#include "drdy_diag.h"
+#endif
+#ifdef ENABLE_AUTO_SWEEP
+#include "auto_sweep.h"
+#endif
 
 /* USER CODE END Includes */
 
@@ -104,8 +110,15 @@ int main(void)
   MX_SPI3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+#ifdef ENABLE_AUTO_SWEEP
+  AutoSweep_Run(&hspi1, &hspi3);
+#else
   DDS_Console_Init(&hspi1, &huart2);
   ADC_Console_Init(&hspi3, &huart2);
+#endif
+#ifdef ENABLE_DRDY_DIAG
+  DRDY_Diag_Start();
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,8 +128,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+#ifdef ENABLE_AUTO_SWEEP
+    __NOP();
+#else
     DDS_Console_Process();
     ADC_Console_Process();
+#endif
   }
   /* USER CODE END 3 */
 }
@@ -367,7 +384,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : ADS_DRDY_Pin */
   GPIO_InitStruct.Pin = ADS_DRDY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(ADS_DRDY_GPIO_Port, &GPIO_InitStruct);
 
@@ -376,10 +393,6 @@ static void MX_GPIO_Init(void)
 
   /*AnalogSwitch Config */
   HAL_SYSCFG_AnalogSwitchConfig(SYSCFG_SWITCH_PA1, SYSCFG_SWITCH_PA1_CLOSE);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(ADS_DRDY_EXTI_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(ADS_DRDY_EXTI_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

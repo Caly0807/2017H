@@ -68,8 +68,8 @@ static void ADC_Status(void)
             (unsigned)adc.chip_id, (unsigned)adc.channel, (unsigned)adc.gain,
             (unsigned long)adc.rate, (unsigned long)(adc.reference_uv / 1000U),
             streaming ? "ON" : "OFF");
-  ADC_Print("ADC N=%lu DRDY_EDGES=%lu HAS_SAMPLE=%u AGE=%lums ERROR=%s\r\n",
-            (unsigned long)adc.samples, (unsigned long)adc.drdy_edges,
+  ADC_Print("ADC N=%lu DRDY_ACCEPTED=%lu HAS_SAMPLE=%u AGE=%lums ERROR=%s\r\n",
+            (unsigned long)adc.samples, (unsigned long)adc.drdy_events,
             (unsigned)adc.has_sample,
             (unsigned long)(HAL_GetTick() - adc.sample_tick), adc.error);
 }
@@ -232,13 +232,5 @@ void ADC_Console_Process(void)
     {
       streaming = 0U;
     }
-  }
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t pin)
-{
-  if (pin == ADS_DRDY_Pin)
-  {
-    ADS1256_DataReady(&adc);
   }
 }

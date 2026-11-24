@@ -1,0 +1,1 @@
+{"source": "simulation", "status": "complete", "records": 41, "tones": 40, "analogCalibrated": false, "samplesPerRecord": 16, "adcRateSettingSps": 100, "adcChannel": 1, "amplitudeCode": 16, "softwareRef_uV": 3000000, "settle_ms": 150, "elapsed_ms": 13500, "muteCommandOK": true}

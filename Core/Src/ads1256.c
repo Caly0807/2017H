@@ -136,12 +136,11 @@ HAL_StatusTypeDef ADS1256_Configure(ADS1256_HandleTypeDef *device,
 {
   uint8_t gain_code;
   uint8_t rate_code;
-  if (!ADS1256_ValidSettings(channel, gain, rate) || device->spi == NULL)
+  if (channel > 7U || device->spi == NULL || !ADS1256_GainCode(gain, &gain_code) ||
+      !ADS1256_RateCode(rate, &rate_code))
   {
     return HAL_ERROR;
   }
-  ADS1256_GainCode(gain, &gain_code);
-  ADS1256_RateCode(rate, &rate_code);
   device->initialized = 0U;
   device->has_sample = 0U;
   if (ADS1256_WaitReady() != HAL_OK)
@@ -183,8 +182,9 @@ HAL_StatusTypeDef ADS1256_Configure(ADS1256_HandleTypeDef *device,
   device->gain = gain;
   device->rate = rate;
   device->samples = 0U;
+  device->drdy_events = 0U;
   device->sample_tick = HAL_GetTick();
-  device->data_ready = 1U;
+  device->wait_drdy_high = 0U;
   device->initialized = 1U;
   device->error = "none";
   return HAL_OK;
@@ -195,7 +195,7 @@ HAL_StatusTypeDef ADS1256_Init(ADS1256_HandleTypeDef *device)
   device->initialized = 0U;
   device->has_sample = 0U;
   device->chip_id = 0xFFU;
-  device->data_ready = 0U;
+  device->wait_drdy_high = 0U;
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->LAR = 0xC5ACCE55U;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
@@ -232,16 +232,17 @@ HAL_StatusTypeDef ADS1256_Poll(ADS1256_HandleTypeDef *device)
   {
     return HAL_ERROR;
   }
-  if (!device->data_ready &&
-      HAL_GPIO_ReadPin(ADS_DRDY_GPIO_Port, ADS_DRDY_Pin) != GPIO_PIN_RESET)
-  {
-    return HAL_BUSY;
-  }
-  device->data_ready = 0U;
   if (HAL_GPIO_ReadPin(ADS_DRDY_GPIO_Port, ADS_DRDY_Pin) != GPIO_PIN_RESET)
   {
+    device->wait_drdy_high = 0U;
     return HAL_BUSY;
   }
+  if (device->wait_drdy_high)
+  {
+    return HAL_BUSY;
+  }
+  device->wait_drdy_high = 1U;
+  ++device->drdy_events;
   uint8_t command = 0x01U;
   uint8_t dummy[] = {0xFFU, 0xFFU, 0xFFU};
   uint8_t received[3];
@@ -267,10 +268,4 @@ HAL_StatusTypeDef ADS1256_Poll(ADS1256_HandleTypeDef *device)
   device->sample_tick = HAL_GetTick();
   ++device->samples;
   return HAL_OK;
-}
-
-void ADS1256_DataReady(ADS1256_HandleTypeDef *device)
-{
-  device->data_ready = 1U;
-  ++device->drdy_edges;
 }

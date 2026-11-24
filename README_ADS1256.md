@@ -1,6 +1,6 @@
 # ADS1256：H743 检波后电压采集
 
-本工程用 AD9959 产生激励信号，用 ADS1256 采集乘法器平方检波、低通滤波后的电压。ADC 默认读取 AIN1 对 AINCOM 的单端电压，数据率 100 SPS，PGA 增益 1，输入缓冲关闭。模块原理图中 AINCOM 已接 AGND。
+ADS1256 采集平方检波和低通滤波后的电压。当前模块印有 `AIN1`～`AIN8`，经短接和接回低通验证，模块端子 `AIN1` 对应芯片通道 `0`。固件默认测量芯片的 `AIN0 − AINCOM`，数据率为 100 SPS，PGA 增益为 1，输入缓冲关闭。模块原理图将 `AINCOM` 接到 `AGND`。
 
 ## 接线
 
@@ -12,11 +12,11 @@
 | DOUT | PC11 | SPI3_MISO，AF6 |
 | DIN | PC12 | SPI3_MOSI，AF6 |
 | CS | PC9 | GPIO 输出，空闲高 |
-| DRDY | PB0 | 上拉输入，EXTI0 下降沿 |
+| DRDY | PB0 | GPIO 上拉输入，主循环轮询 |
 | SYNC / PDWN | PC6 | GPIO 输出，正常高 |
 | RST / RESET | PC7 | GPIO 输出，正常高，初始化时拉低复位 |
 | D0～D3 | 不连接 | 辅助 GPIO，不是 SPI 数据线 |
-| IN1 / AIN1 | 低通滤波器输出 | 默认被测电压输入 |
+| 端子 AIN1 | 低通滤波器输出 | 芯片通道 0 |
 | AGND | 低通滤波器信号地 | 模拟信号回路 |
 
 信号接入前确认滤波器输出相对 AGND 位于 0V 至 ADC 实际 AVDD 之间。平方检波电路若使用双电源，需确认其输出没有负压或过大的偏置。ADC 的“有符号结果 / 差分量程”不表示单个输入脚可以直接承受负电压。
@@ -30,7 +30,7 @@
 - SPI3：全双工主机、8 位、MSB first、CPOL Low、CPHA 2 Edge（Mode 1）。
 - SPI3 内核时钟 80MHz，64 分频，SCLK 为 1.25MHz；软件 NSS，关闭 NSS pulse。
 - PC9/PC6/PC7：推挽输出，初始高电平。
-- PB0：GPIO_EXTI0，下降沿，上拉，中断优先级 6。
+- PB0：GPIO 上拉输入。读取一次后等到 DRDY 回到高电平，才响应下一次低电平。
 - 原 DDS 的 SPI1 和 USART2 的 PA2 TX / PD6 RX 保留；串口参数 115200、8N1、无流控。
 
 Core/Src/main.c 的应用调用放在 USER CODE 区域，驱动源码在顶层 CMakeLists.txt 中添加，后续 CubeMX 重新生成时可以保留。
@@ -46,7 +46,7 @@ ADC ON
 ADC OFF
 ```
 
-- `ADC STATUS`：显示芯片 ID、配置、读取次数、DRDY 中断次数和数据年龄。
+- `ADC STATUS`：显示芯片 ID、配置、读取次数、识别到的 DRDY 事件数和数据年龄。
 - `ADC READ`：显示最新一个有效采样，包含 RAW 原始码和 U 电压（mV）。
 - `ADC ON`：每 200ms 显示一次最新采样；ADC 本身仍按设置的数据率转换。
 - `ADC OFF`：停止连续串口显示，后台转换和读取继续。
@@ -55,7 +55,7 @@ ADC OFF
 成功初始化时应看到 `ADC OK ID=3`。例如下面只展示输出格式，不代表实机测量结果：
 
 ```text
-ADC AIN1 RAW=1398101 U=999.999mV AGE=0ms N=123 SAT=0
+ADC AIN0 RAW=1398101 U=999.999mV AGE=0ms N=123 SAT=0
 ```
 
 `SAT=1` 表示 ADC 数字结果到达量程端点。`STALE` 或 `no fresh sample` 表示超过 1 秒没有新样本，不应继续当作当前电压使用。SPI 出错后需排查接线并发送 `ADC INIT`。
@@ -63,14 +63,14 @@ ADC AIN1 RAW=1398101 U=999.999mV AGE=0ms N=123 SAT=0
 ## 调整参数
 
 ```text
-ADC CH 1
+ADC CH 0
 ADC GAIN 1
 ADC RATE 100
 ADC VREF 3000
 ADC ON
 ```
 
-- `ADC CH 0..7`：选择一个单端输入，对 AINCOM 测量；当前不做多通道轮询。
+- `ADC CH 0..7`：选择芯片的通道号，测量该通道对 `AINCOM` 的电压。命令里的数字不是模块端子编号。
 - `ADC GAIN 1/2/4/8/16/32/64`：调整 PGA。先以增益 1 验证电压，再根据检波后信号范围选择增益。
 - `ADC RATE` 支持整数 SPS：10、15、25、30、50、60、100、500、1000、2000、3750、7500、15000、30000。
 - 改通道、增益、数据率时会自校准并停止串口连续显示，之后重新发送 `ADC ON`。
@@ -91,9 +91,9 @@ U = RAW × 2 × VREF / (8388608 × PGA)
 ## 验证与烧录
 
 1. 按表接好数字控制线、电源和公共地。
-2. 先让 IN1 接 AGND，确认 `ADC STATUS` 中 ID=3，`ADC ON` 显示接近零的电压和持续增加的 N。
+2. 断电并断开低通输出。将模块端子 `AIN1` 接到同排 `GND`，再上电。用 `ADC STATUS` 确认 `ID=3`，用 `ADC ON` 检查原始码是否接近零、`N` 是否持续增加。
 3. 再输入用万用表确认过的已知直流电压，核对电压换算和参考电压设置。
-4. 最后接入低通滤波器输出，观察电压随激励变化。
+4. 断电并移除短接线，再接回低通滤波器输出。上电后观察电压随激励的变化。
 
 VS Code：`Ctrl+Shift+P` → `Tasks: Run Task` → `STM32: Build and Flash (ST-LINK)`。本次修改完成后需要下载新固件才会出现 ADC 命令。
 
